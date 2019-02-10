@@ -1,10 +1,10 @@
 package com.mobiquityinc.packer;
 
 import com.google.common.collect.ImmutableList;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Comparator.comparing;
 
@@ -13,7 +13,7 @@ Things number: N <= 15
 All possible combinations number: C = 2^N - 1
 max C = about 30k -> can merely go though all the options
 
-Recursive combinations building algorithm explanation:
+Recursive combinations scanning algorithm explanation:
 
 source: (a, b, c, d)
 |                    |         |     |
@@ -37,36 +37,39 @@ public class Combinator {
             .thenComparing(WEIGHT_COMPARATOR.reversed());
 
     static Optional<List<Thing>> findBestCombination(double maxWeight, List<Thing> source) {
-        List<Combination> combinations = new ArrayList<>();
+        AtomicReference<Combination> bestCombination = new AtomicReference<>(); //used as a wrapper only
         for (int i = 0; i < source.size(); i++) {
-            Combination currentSet = new Combination(source.get(i), i);
-            addCombination(maxWeight, source, currentSet, combinations);
+            Combination currentCombination = new Combination(source.get(i), i);
+            processCombination(maxWeight, source, currentCombination, bestCombination);
         }
-        return combinations.stream().max(COST_WEIGHT_COMPARATOR).map(c -> c.elements);
+        return Optional.ofNullable(bestCombination.get()).map(c -> c.elements);
     }
 
     /**
-     * adds current combination and all of its derivatives to the list, if they don't overweight maxWeight
+     * checks current combination and all of its derivatives to the list for being the best combination, if they don't
+     * overweight maxWeight
      */
-    private static void addCombination(double maxWeight, List<Thing> source, Combination current,
-           List<Combination> combinations) {
-        if (current.weight > maxWeight) {
+    private static void processCombination(double maxWeight, List<Thing> source, Combination currentCombination,
+           AtomicReference<Combination> bestCombination) {
+        if (currentCombination.weight > maxWeight) {
             return;
         }
-        combinations.add(current);
-        for (int i = current.maxIndex + 1; i < source.size(); i++) {
+        if (bestCombination.get() == null || currentCombination.compareTo(bestCombination.get()) > 0) {
+            bestCombination.set(currentCombination);
+        }
+        for (int i = currentCombination.maxIndex + 1; i < source.size(); i++) {
             Thing additionalElement = source.get(i);
             Combination extendedCombination = new Combination(
-                    ImmutableList.<Thing>builder().addAll(current.elements).add(additionalElement).build(),
-                    current.weight + additionalElement.weight,
-                    current.cost + additionalElement.cost,
+                    ImmutableList.<Thing>builder().addAll(currentCombination.elements).add(additionalElement).build(),
+                    currentCombination.weight + additionalElement.weight,
+                    currentCombination.cost + additionalElement.cost,
                     i
             );
-            addCombination(maxWeight, source, extendedCombination, combinations);
+            processCombination(maxWeight, source, extendedCombination, bestCombination);
         }
     }
 
-    private static class Combination {
+    private static class Combination implements Comparable<Combination> {
         final List<Thing> elements;
         final double weight;
         final int cost;
@@ -81,6 +84,11 @@ public class Combinator {
             this.weight = weight;
             this.cost = cost;
             this.maxIndex = maxIndex;
+        }
+
+        @Override
+        public int compareTo(Combination o) {
+            return COST_WEIGHT_COMPARATOR.compare(this, o);
         }
     }
 }
