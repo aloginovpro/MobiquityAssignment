@@ -54,7 +54,8 @@ public class Combinator {
         if (currentCombination.weight > maxWeight) {
             return;
         }
-        if (bestCombination.get() == null || currentCombination.compareTo(bestCombination.get()) > 0) {
+        if (bestCombination.get() == null
+                || COST_WEIGHT_COMPARATOR.compare(currentCombination, bestCombination.get()) > 0) {
             bestCombination.set(currentCombination);
         }
         for (int i = currentCombination.maxIndex + 1; i < source.size(); i++) {
@@ -69,7 +70,7 @@ public class Combinator {
         }
     }
 
-    private static class Combination implements Comparable<Combination> {
+    private static class Combination {
         final List<Thing> elements;
         final double weight;
         final int cost;
@@ -84,11 +85,6 @@ public class Combinator {
             this.weight = weight;
             this.cost = cost;
             this.maxIndex = maxIndex;
-        }
-
-        @Override
-        public int compareTo(Combination o) {
-            return COST_WEIGHT_COMPARATOR.compare(this, o);
         }
     }
 }
